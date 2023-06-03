@@ -1,0 +1,87 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-06-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#in the original experiement were analyzing the effect on education level 
+#in this step we will explore why or why not other variables might be better predictors
+#in this case sex(a categorical variable will predict income)
+
+income_data <- read.csv("C:\\Users\\Omer\\Desktop\\adult.csv")
+
+#in this case the str function tells us the structure of data
+str(income_data)
+
+
+income_data[income_data == "?"]<-NA
+
+
+#making sure the predictor is a factor and the income is stored as a binary
+income_data$sex<-as.factor(income_data$sex)
+
+income_data$income_binary <- ifelse(income_data$income == ">50K", 1, 0)
+print(income_data)
+
+
+
+fit<- glm(income_binary ~ sex, data = income_data, family = binomial)
+
+summary(fit)
+#the fitted model of this logistic regression indicates a positive slove and 
+#the p value is 2*10^-6 which is much less than 0.05 indicating a strong linear relationship
+#less likely that the b1 in this case is zero
+
+#Since this is logistic regression we cant calculate R^2 however McFadden's pseudo
+#R^2 is a good estimate
+
+ll.null<-fit$null.deviance/-2
+ll.proposed <- fit$deviance/-2
+
+r_squared <-(ll.null-ll.proposed)/ll.null
+print(r_squared)
+#in this case the R^2 value is 0.0466 which is low indicating a low explanation for 
+#variancein the response variable therefore for this logistic regression we cannot be sure 
+#if the income is being fully explained by the predictor (sex) or another random factor
+
+```
+```{r}
+#Since the last model had a low R^2 value we can try another variable which may also predict income
+#Maybe hours per week on the job?
+
+income_data$hours.per.week<-as.integer(income_data$hours.per.week)
+
+
+log<- glm(income_binary ~ hours.per.week, data = income_data, family = binomial)
+
+summary(log)
+
+ll.null<-log$null.deviance/-2
+ll.proposed <- log$deviance/-2
+
+r_squared <-(ll.null-ll.proposed)/ll.null
+print(r_squared)
+
+#In this case the R^2 squared value is also low however slightly higher: 0.048
+
+plot(income_data$hours.per.week,income_data$income_binary, main = "Linear Regression", xlab = "Predictor Variable", ylab = "Response Variable")
+
+# Add the regression line to the plot
+abline(log, col = "red")
+
+# Add a legend if desired
+legend("topleft", legend = "Regression Line", col = "red", lwd = 1)
+
+```
+
