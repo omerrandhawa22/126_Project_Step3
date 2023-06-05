@@ -15,8 +15,8 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r}
-#in the original experiement were analyzing the effect on education level 
-#in this step we will explore why or why not other variables might be better predictors
+#in the original experiment were analyzing the effect on income vs education level
+#in this step we will explore why or why not other variables might be better predictors of income
 #in this case sex(a categorical variable will predict income)
 
 income_data <- read.csv("C:\\Users\\Omer\\Desktop\\adult.csv")
@@ -31,9 +31,23 @@ income_data[income_data == "?"]<-NA
 #making sure the predictor is a factor and the income is stored as a binary
 income_data$sex<-as.factor(income_data$sex)
 
-income_data$income_binary <- ifelse(income_data$income == ">50K", 1, 0)
-print(income_data)
 
+
+income_data$income_binary <- ifelse(income_data$income == ">50K", 1, 0)
+
+#before performing regression lets see if we can spot correlation between the two variables from plotting
+#In this case we are not using interaction variable for this regression since only one independent variable is
+#being observed
+
+
+c_table<-table(income_data$income_binary,income_data$sex)
+ns <- c("red=number making over 50k", "blue=number making less than or equal to 50k")
+
+barplot(c_table, beside = FALSE, legend.text = TRUE, col = c("blue", "red"))
+barplot + scale_fill_discrete(labels = ns)
+#in this barplot the red represents the number of making over 50k and blue is less than or equal to 50k
+#males show a higher proportion above 50k so we can continue with the regression
+#in this case we can see a correlation so interaction variables are necessary
 
 
 fit<- glm(income_binary ~ sex, data = income_data, family = binomial)
@@ -78,10 +92,53 @@ print(r_squared)
 plot(income_data$hours.per.week,income_data$income_binary, main = "Linear Regression", xlab = "Predictor Variable", ylab = "Response Variable")
 
 # Add the regression line to the plot
-abline(log, col = "red")
+p <- ggplot(data = income_data, aes(hours.per.week = hours.per.week, income_binary = income_binary)) +
+  geom_point()
+p <- p + stat_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE)
 
-# Add a legend if desired
-legend("topleft", legend = "Regression Line", col = "red", lwd = 1)
+
 
 ```
+```{r}
+#will compare multiple linear regression model with two variables with one variable
 
+# Model 1: One predictor
+model1 <- glm(income_binary ~ hours.per.week, data = income_data, family = binomial)
+
+# Model 2: Two predictors
+model2 <- glm(income_binary ~ hours.per.week + sex, data = income_data, family = binomial)
+
+lr_test <- anova(model1, model2, test = "Chisq")
+
+#In the anova are calculating the ratio between error squares
+
+#If the p-value is below a chosen significance level (0.05), you can conclude that the two predictor provides a significantly better fit to the data compared to the one independent variable model
+
+
+
+p_value <- lr_test[, "Pr(>Chi)"]
+
+# Print the p-value
+print(p_value)
+
+#p value is much less than 0.05 indicating that the multiple linear model is a better predictor
+
+
+#give PI and CI for multiple linear model:::
+
+# Prediction intervals
+pred_intervals <- predict(model1, interval = "prediction")
+
+# Confidence intervals
+conf_intervals <- predict(model1, interval = "confidence")
+
+
+
+
+
+
+
+
+
+
+```
