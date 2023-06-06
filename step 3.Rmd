@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: ""
 output: html_document
 date: "2023-06-01"
 ---
@@ -19,118 +19,99 @@ When you click the **Knit** button a document will be generated that includes bo
 #in this step we will explore why or why not other variables might be better predictors of income
 #in this case sex(a categorical variable will predict income)
 
+#The first variable we will test is the marriage levels
+
 income_data <- read.csv("C:\\Users\\Omer\\Desktop\\adult.csv")
 
-#in this case the str function tells us the structure of data
-str(income_data)
 
 
+#cleaning the data
 income_data[income_data == "?"]<-NA
 
 
-#making sure the predictor is a factor and the income is stored as a binary
-income_data$sex<-as.factor(income_data$sex)
+#getting all the unqiue marital status levels
+temp <- income_data$marital.status
+marridge_levels <- c("Widowed","Divorced","Separated","Never-married","Married-spouse-absent","Married-civ-spouse","Married-AF-spouse")
+print(marridge_levels)
+
+
+#this code gets the proportion of values for each of the seven levels of marital status that are above 50k
+income_data <- income_data %>% mutate(m_num = match(marital.status, marridge_levels))
+
+income_summary <- income_data %>% group_by(m_num) %>% summarize(prop_over_50k = mean(income == ">50K"))
+
+#fitting the linear regression model
+
+lm_fit <- lm(prop_over_50k ~ m_num^2, data = income_summary)
+
+summary(lm_fit)
 
 
 
-income_data$income_binary <- ifelse(income_data$income == ">50K", 1, 0)
-
-#before performing regression lets see if we can spot correlation between the two variables from plotting
-#In this case we are not using interaction variable for this regression since only one independent variable is
-#being observed
-
-
-c_table<-table(income_data$income_binary,income_data$sex)
-ns <- c("red=number making over 50k", "blue=number making less than or equal to 50k")
-
-barplot(c_table, beside = FALSE, legend.text = TRUE, col = c("blue", "red"))
-barplot + scale_fill_discrete(labels = ns)
-#in this barplot the red represents the number of making over 50k and blue is less than or equal to 50k
-#males show a higher proportion above 50k so we can continue with the regression
-#in this case we can see a correlation so interaction variables are necessary
+# Replace x-axis labels with specified labels
+ggplot(income_summary, aes(x = factor(m_num), y = prop_over_50k)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(x = "levels of marriage", y = "prop over 50k", title = "Linear Regression Model") +
+  scale_x_discrete(labels = c("Widowed", "Divorced", "Separated", "Never-married",
+                              "Married-civ-spouse", "Married-spouse-absent", "Married-AF-spouse"))
 
 
-fit<- glm(income_binary ~ sex, data = income_data, family = binomial)
+#The R^2 value is low (0.3567) which means that a lot of the variance is not explained by the regression
+#clearly there is a lot of variation within the output and the R^2 value being low doesn't help
+#The p-value is also high for the intercepts indicating 
 
-summary(fit)
-#the fitted model of this logistic regression indicates a positive slove and 
-#the p value is 2*10^-6 which is much less than 0.05 indicating a strong linear relationship
-#less likely that the b1 in this case is zero
 
-#Since this is logistic regression we cant calculate R^2 however McFadden's pseudo
-#R^2 is a good estimate
 
-ll.null<-fit$null.deviance/-2
-ll.proposed <- fit$deviance/-2
-
-r_squared <-(ll.null-ll.proposed)/ll.null
-print(r_squared)
-#in this case the R^2 value is 0.0466 which is low indicating a low explanation for 
-#variancein the response variable therefore for this logistic regression we cannot be sure 
-#if the income is being fully explained by the predictor (sex) or another random factor
-
+# Plot the residuals
+plot(lm_fit, which = 1)
 ```
 ```{r}
 #Since the last model had a low R^2 value we can try another variable which may also predict income
 #Maybe hours per week on the job?
 
-income_data$hours.per.week<-as.integer(income_data$hours.per.week)
+#getting all the work levels
+
+work_levels <- c("NA","Never-worked","Without-pay","Self-emp-inc","Self-emp-not-inc","Local-gov","State-gov","Federal-gov","Private")
 
 
-log<- glm(income_binary ~ hours.per.week, data = income_data, family = binomial)
 
-summary(log)
+income_data <- income_data %>% mutate(w_num = match(workclass, work_levels))
 
-ll.null<-log$null.deviance/-2
-ll.proposed <- log$deviance/-2
+income_summary <- income_data %>% group_by(w_num) %>% summarize(prop_over_50k = mean(income == ">50K"))
 
-r_squared <-(ll.null-ll.proposed)/ll.null
-print(r_squared)
+#fitting the linear regression model
 
-#In this case the R^2 squared value is also low however slightly higher: 0.048
+lm_fit <- lm(prop_over_50k ~ w_num, data = income_summary)
 
-plot(income_data$hours.per.week,income_data$income_binary, main = "Linear Regression", xlab = "Predictor Variable", ylab = "Response Variable")
+summary(lm_fit)
 
-# Add the regression line to the plot
-p <- ggplot(data = income_data, aes(hours.per.week = hours.per.week, income_binary = income_binary)) +
-  geom_point()
-p <- p + stat_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE)
+
+
+# Replace x-axis labels with specified labels
+ggplot(income_summary, aes(x = factor(w_num), y = prop_over_50k)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(x = "levels of employment", y = "prop over 50k", title = "Linear Regression Model") +
+  scale_x_discrete(labels = work_levels)
+
+
+
 
 
 
 ```
 ```{r}
-#will compare multiple linear regression model with two variables with one variable
+#in this experiment used domain knowledge to levels the better marital statuses and employment levels
+#used domain knowledge to group the levels of employment from worst to best and marital status from wort to best
 
-# Model 1: One predictor
-model1 <- glm(income_binary ~ hours.per.week, data = income_data, family = binomial)
+#R^2 value of marital status is greater than employment level R^2 value so it is the better model(0.57 vs 0.1679)
+#The marital status indepent variable was transformed to quadratic by looking at the plot
 
-# Model 2: Two predictors
-model2 <- glm(income_binary ~ hours.per.week + sex, data = income_data, family = binomial)
-
-lr_test <- anova(model1, model2, test = "Chisq")
-
-#In the anova are calculating the ratio between error squares
-
-#If the p-value is below a chosen significance level (0.05), you can conclude that the two predictor provides a significantly better fit to the data compared to the one independent variable model
+#As the marital status gets better the prop of income over 50k gets higher
 
 
 
-p_value <- lr_test[, "Pr(>Chi)"]
-
-# Print the p-value
-print(p_value)
-
-#p value is much less than 0.05 indicating that the multiple linear model is a better predictor
-
-
-#give PI and CI for multiple linear model:::
-
-# Prediction intervals
-pred_intervals <- predict(model1, interval = "prediction")
-
-# Confidence intervals
-conf_intervals <- predict(model1, interval = "confidence")
 
 
 
@@ -142,3 +123,220 @@ conf_intervals <- predict(model1, interval = "confidence")
 
 
 ```
+
+---
+title: "Project Pstat 126 Step 4"
+author: "Kenny"
+output: html_document
+date: "2023-06-01"
+---
+```{r setup, include = FALSE}
+# default code chunk options
+knitr::opts_chunk$set(echo = T,
+                      results = 'markup',
+                      message = F, 
+                      warning = F,
+                      fig.width = 4,
+                      fig.height = 3,
+                      fig.align = 'center') 
+
+# load packages
+library(faraway)
+library(tidyverse)
+library(tidymodels)
+library(modelr)
+library(ggplot2)
+library(glmnet)
+```
+
+
+Introduction: (Quickly reacquaint the reader with the relevant variables). Ensure to
+include a citation for the original data source, and clarify the population to which your
+results are being inferred.
+```{r}
+
+income_data <- read.csv("~/downloads/PSTAT126_Project-main/adult-copy.csv")
+head(income_data)
+
+#The variables that are relevant to the 
+
+```
+
+
+• Execute both ridge regression (RR) and LASSO on the complete variable set (use cross-
+validation to find lambda). Analyze and differentiate the models (i.e., coeﬀicients) with
+the final MLR model from the previous project task.
+```{r}
+
+#Ridge Regression for variables 
+
+#response variable
+y <- income_data$educational.num
+
+#define the matrix of the predictor variables
+x <- data.matrix(income_data[, c('age', 'fnlwgt', 'hours.per.week')])
+
+#fit Ridge Regression Model
+model <- glmnet(x, y, alpha = 0)
+
+#summary of the model
+summary(model)
+
+#performing k-fold cross_validation in order to find optimal lambda value
+cv_model <- cv.glmnet(x, y, alpha = 0)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+#produce plot of test MSE by lambda value
+plot(cv_model)
+
+#find coefficients of best model
+best_model <- glmnet(x, y, alpha = 0, lamba = best_lambda)
+coef(best_model)
+
+#ridge trace plot 
+plot(model, xvar = "lambda")
+
+#using best fitted model to make predictions
+
+y_predicted <- predict(model, s = best_lambda, newx = x)
+
+#calculating R^2 and SST and SSE
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+
+r_2 <- 1 - sse/sst
+r_2
+
+
+```
+
+
+```{r}
+#LASSO Regression
+
+#response variable
+y <- income_data$educational.num
+
+#define the matrix of the predictor variables
+x <- data.matrix(income_data[, c('age', 'fnlwgt', 'hours.per.week')])
+
+# perform k-fold cross validation to find optimal lambda value
+cv_model2 <- cv.glmnet(x, y, alpha = 1)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda2 <- cv_model2$lambda.min
+best_lambda2
+
+#producing plot of test MSE by lambda value
+plot(cv_model2)
+
+#Analyzing final model
+#finding coefficients of best model
+
+best_model2 <- glmnet(x, y, alpha = 1, lambda = best_lambda2)
+coef(best_model2)
+
+
+#using best fitted model to make predictions
+
+y_predicted2 <- predict(model, s = best_lambda2, newx = x)
+
+
+#calculating R^2 and SST and SSE
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted2 - y)^2)
+
+r_2 <- 1 - sse/sst
+r_2
+
+#not too sure why the r squares are so low but maybe the formulas are wrong for the r squared 
+
+```
+
+
+
+• Construct a single graph with the observed response variable on the x-axis and the
+predicted response variable on the y-axis. Superimpose (using color with a legend) 3
+different predictions: MLR, RR, LASSO. Provide a commentary on the figure.
+```{r}
+
+#need Step 3 MLR model in order to do this part.
+
+```
+
+
+
+• Conclusion (Sum up your results. Discuss any notable happenings. Were the data largely
+as you anticipated or were there surprising results? What further queries would you like
+to explore about the data?)
+
+```{r}
+#will do all together
+
+
+```
+
+
+Innovation:
+• Execute at least one analysis technique that hasn’t been covered in class.
+
+```{r}
+library(boot)
+y <- income_data$education.num
+x <- data.matrix(income_data[, c('age', 'fnlwgt', 'hours.per.week')])
+
+# Creating Function to obtain R-Squared from the data
+r_squared <- function(formula, data, indices) {
+val <- data[indices,] # selecting sample with boot 
+fit <- lm(formula, data=val)
+return(summary(fit)$r.square)
+} 
+
+# Performing 500 replications with boot 
+output <- boot(data=income_data, statistic=r_squared, 
+R=100, formula= y ~ x)
+
+# Plotting the output
+output 
+plot(output)
+
+# Obtaining a confidence interval of 95%
+boot.ci(output, type="bca")
+
+
+```
+
+
+• Justify your choice of method(s). That is, why is it suitable for your data? Explain the
+importance of this method in comprehending your data’s complete analysis.
+
+```{r}
+
+
+
+```
+
+• Provide some context/theory to the method (demonstrate your comprehension of the new
+method). This is essential! For instance, describe the derivation and intuition behind
+a new test statistic. Share as much detail as possible about your understanding of the
+new concept.
+
+```{r}
+
+
+
+```
+
+
+• What technical conditions are vital for the model? How do the results react to these
+conditions? Were any of these violated?
+
+```{r}
+
+
+
+```
+
